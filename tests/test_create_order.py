@@ -1,8 +1,7 @@
 import allure
-from helpers import generate_user_data, register_user, delete_user, get_ingredients
-import requests
-
-BASE_URL = "https://stellarburgers.education-services.ru/api"
+from helpers import generate_user_data
+from api import UserApi, OrderApi
+from data import MSG_UNAUTHORISED, MSG_NO_INGREDIENTS
 
 
 class TestCreateOrder:
@@ -10,47 +9,40 @@ class TestCreateOrder:
     @allure.title("Создание заказа с авторизацией и валидными ингредиентами")
     def test_create_order_authorized_valid_ingredients(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
-        ingredients = get_ingredients().json()["data"]
+        ingredients = OrderApi.get_ingredients().json()["data"]
         ingredient_ids = [ingredients[0]["_id"], ingredients[1]["_id"]]
-        response = requests.post(f"{BASE_URL}/orders",
-                                 headers={"Authorization": token},
-                                 json={"ingredients": ingredient_ids})
+        response = OrderApi.create(token, ingredient_ids)
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is True
         assert body["order"]["number"] > 0
-        delete_user(token)
+        UserApi.delete(token)
 
     @allure.title("Создание заказа без авторизации")
     def test_create_order_unauthorized(self):
-        ingredients = get_ingredients().json()["data"]
+        ingredients = OrderApi.get_ingredients().json()["data"]
         ingredient_ids = [ingredients[0]["_id"], ingredients[1]["_id"]]
-        response = requests.post(f"{BASE_URL}/orders",
-                                 json={"ingredients": ingredient_ids})
+        response = OrderApi.create_without_auth(ingredient_ids)
         assert response.status_code == 401
-        assert response.json()["message"] == "You should be authorised"
+        assert response.json()["message"] == MSG_UNAUTHORISED
 
     @allure.title("Создание заказа без ингредиентов")
     def test_create_order_without_ingredients(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
-        response = requests.post(f"{BASE_URL}/orders",
-                                 headers={"Authorization": token},
-                                 json={"ingredients": []})
+        response = OrderApi.create(token, [])
         assert response.status_code == 400
-        assert response.json()["message"] == "Ingredient ids must be provided"
-        delete_user(token)
+        assert response.json()["message"] == MSG_NO_INGREDIENTS
+        UserApi.delete(token)
 
     @allure.title("Создание заказа с неверным хешем ингредиента")
     def test_create_order_invalid_hash(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
-        response = requests.post(f"{BASE_URL}/orders",
-                                 headers={"Authorization": token},
-                                 json={"ingredients": ["invalid_hash_123"]})
+        response = OrderApi.create(token, ["invalid_hash_123"])
         assert response.status_code == 500
-        delete_user(token)
+        UserApi.delete(token)

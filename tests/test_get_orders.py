@@ -1,8 +1,8 @@
 import allure
-from helpers import generate_user_data, register_user, delete_user, get_ingredients
+from helpers import generate_user_data
+from api import UserApi
 import requests
-
-BASE_URL = "https://stellarburgers.education-services.ru/api"
+from data import BASE_URL, MSG_UNAUTHORISED
 
 
 class TestGetOrders:
@@ -10,7 +10,7 @@ class TestGetOrders:
     @allure.title("Получение заказов авторизованного пользователя")
     def test_get_orders_authorized(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
         response = requests.get(f"{BASE_URL}/orders",
                                 headers={"Authorization": token})
@@ -20,10 +20,10 @@ class TestGetOrders:
         assert "orders" in body
         assert "total" in body
         assert "totalToday" in body
-        delete_user(token)
+        UserApi.delete(token)
 
     @allure.title("Получение заказов неавторизованного пользователя")
     def test_get_orders_unauthorized(self):
         response = requests.get(f"{BASE_URL}/orders")
         assert response.status_code == 401
-        assert response.json()["message"] == "You should be authorised"
+        assert response.json()["message"] == MSG_UNAUTHORISED

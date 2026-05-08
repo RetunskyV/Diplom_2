@@ -1,8 +1,8 @@
 import allure
-from helpers import generate_user_data, register_user, delete_user, generate_random_string
+from helpers import generate_user_data, generate_random_string
+from api import UserApi
 import requests
-
-BASE_URL = "https://stellarburgers.education-services.ru/api"
+from data import BASE_URL, MSG_UNAUTHORISED
 
 
 class TestUserUpdate:
@@ -10,7 +10,7 @@ class TestUserUpdate:
     @allure.title("Изменение данных авторизованного пользователя — email")
     def test_update_authorized_email(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
         new_email = f"new_{generate_random_string()}@test.com"
         response = requests.patch(f"{BASE_URL}/auth/user",
@@ -19,12 +19,12 @@ class TestUserUpdate:
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert response.json()["user"]["email"] == new_email
-        delete_user(token)
+        UserApi.delete(token)
 
     @allure.title("Изменение данных авторизованного пользователя — name")
     def test_update_authorized_name(self):
         user_data = generate_user_data()
-        reg_response = register_user(user_data)
+        reg_response = UserApi.register(user_data)
         token = reg_response.json()["accessToken"]
         new_name = f"new_{generate_random_string()}"
         response = requests.patch(f"{BASE_URL}/auth/user",
@@ -33,7 +33,7 @@ class TestUserUpdate:
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert response.json()["user"]["name"] == new_name
-        delete_user(token)
+        UserApi.delete(token)
 
     @allure.title("Изменение данных неавторизованного пользователя")
     def test_update_unauthorized(self):
@@ -41,4 +41,4 @@ class TestUserUpdate:
         response = requests.patch(f"{BASE_URL}/auth/user",
                                   json={"name": new_name})
         assert response.status_code == 401
-        assert response.json()["message"] == "You should be authorised"
+        assert response.json()["message"] == MSG_UNAUTHORISED
